@@ -11,7 +11,7 @@ All text above must be included in any redistribution
   // Only include software serial on AVR platforms (i.e. not on Due).
   #include <SoftwareSerial.h>
 #endif
-#include <Adafruit_GPS.h>
+#include <RoveAdafruit_GPS.h>
 
 // how long are max NMEA lines to parse?
 #define MAXLINELENGTH 120
@@ -24,11 +24,20 @@ volatile uint8_t lineidx=0;
 // pointers to the double buffers
 volatile char *currentline;
 volatile char *lastline;
-volatile boolean recvdflag;
-volatile boolean inStandbyMode;
+volatile bool recvdflag;
+volatile bool inStandbyMode;
 
+int isAlpha(int c)
+{
+  return ((c>='A'&&c<='Z')||(c>='a'&&c<='z'));
+}
 
-boolean Adafruit_GPS::parse(char *nmea) {
+int isDigit(int c)
+{
+  return (((c)>='0')&&((c)<='9'));
+}
+
+bool Adafruit_GPS::parse(char *nmea) {
   // do checksum check
 
   // first look if we even have one
@@ -273,8 +282,8 @@ char Adafruit_GPS::read(void) {
   } else 
 #endif
   {
-    if(!gpsHwSerial->available()) return c;
-    c = gpsHwSerial->read();
+    if(!roveUartAvailable(serial)) return c;
+    roveUartRead(serial, &c, 1);
   }
 
   //Serial.print(c);
@@ -322,9 +331,8 @@ Adafruit_GPS::Adafruit_GPS(NewSoftSerial *ser)
 #endif
 
 // Constructor when using HardwareSerial
-Adafruit_GPS::Adafruit_GPS(HardwareSerial *ser) {
-  common_init();  // Set everything to common state, then...
-  gpsHwSerial = ser; // ...override gpsHwSerial with value passed.
+Adafruit_GPS::Adafruit_GPS() {
+  common_init();  // Set everything to common state, then
 }
 
 // Initialization code used by all constructor types
@@ -332,7 +340,6 @@ void Adafruit_GPS::common_init(void) {
 #ifdef __AVR__
   gpsSwSerial = NULL; // Set both to NULL, then override correct
 #endif
-  gpsHwSerial = NULL; // port pointer in corresponding constructor
   recvdflag   = false;
   paused      = false;
   lineidx     = 0;
@@ -342,37 +349,42 @@ void Adafruit_GPS::common_init(void) {
   hour = minute = seconds = year = month = day =
     fixquality = satellites = 0; // uint8_t
   lat = lon = mag = 0; // char
-  fix = false; // boolean
+  fix = false; // bool
   milliseconds = 0; // uint16_t
   latitude = longitude = geoidheight = altitude =
     speed = angle = magvariation = HDOP = 0.0; // float
 }
 
-void Adafruit_GPS::begin(uint32_t baud)
+void Adafruit_GPS::begin(uint8_t uartIndex, uint32_t baud, uint8_t txPin, uint8_t rxPin)
 {
 #ifdef __AVR__
   if(gpsSwSerial) 
     gpsSwSerial->begin(baud);
   else
 #endif 
-    gpsHwSerial->begin(baud);
+  serial = roveUartOpen(uartIndex, baud, txPin, rxPin);
+  roveUartSetBufferLength(serial, 500);
   delay(10);
 }
 
-void Adafruit_GPS::sendCommand(const char *str) {
+void Adafruit_GPS::sendCommand(char *str) {
 #ifdef __AVR__
   if(gpsSwSerial) 
     gpsSwSerial->println(str);
   else    
 #endif
-    gpsHwSerial->println(str);
+    int length = strlen(str);
+    char end = '\n';
+
+    roveUartWrite(serial, str, length);
+    roveUartWrite(serial, &end, 1);
 }
 
-boolean Adafruit_GPS::newNMEAreceived(void) {
+bool Adafruit_GPS::newNMEAreceived(void) {
   return recvdflag;
 }
 
-void Adafruit_GPS::pause(boolean p) {
+void Adafruit_GPS::pause(bool p) {
   paused = p;
 }
 
@@ -395,7 +407,7 @@ uint8_t Adafruit_GPS::parseHex(char c) {
     return 0;
 }
 
-boolean Adafruit_GPS::waitForSentence(const char *wait4me, uint8_t max) {
+bool Adafruit_GPS::waitForSentence(const char *wait4me, uint8_t max) {
   char str[20];
 
   uint8_t i=0;
@@ -414,19 +426,19 @@ boolean Adafruit_GPS::waitForSentence(const char *wait4me, uint8_t max) {
   return false;
 }
 
-boolean Adafruit_GPS::LOCUS_StartLogger(void) {
+bool Adafruit_GPS::LOCUS_StartLogger(void) {
   sendCommand(PMTK_LOCUS_STARTLOG);
   recvdflag = false;
   return waitForSentence(PMTK_LOCUS_STARTSTOPACK);
 }
 
-boolean Adafruit_GPS::LOCUS_StopLogger(void) {
+bool Adafruit_GPS::LOCUS_StopLogger(void) {
   sendCommand(PMTK_LOCUS_STOPLOG);
   recvdflag = false;
   return waitForSentence(PMTK_LOCUS_STARTSTOPACK);
 }
 
-boolean Adafruit_GPS::LOCUS_ReadStatus(void) {
+bool Adafruit_GPS::LOCUS_ReadStatus(void) {
   sendCommand(PMTK_LOCUS_QUERY_STATUS);
   
   if (! waitForSentence("$PMTKLOG"))
@@ -473,7 +485,7 @@ boolean Adafruit_GPS::LOCUS_ReadStatus(void) {
 }
 
 // Standby Mode Switches
-boolean Adafruit_GPS::standby(void) {
+bool Adafruit_GPS::standby(void) {
   if (inStandbyMode) {
     return false;  // Returns false if already in standby mode, so that you do not wake it up by sending commands to GPS
   }
@@ -485,10 +497,10 @@ boolean Adafruit_GPS::standby(void) {
   }
 }
 
-boolean Adafruit_GPS::wakeupGPS(void) {
+bool Adafruit_GPS::wakeupGPS(void) {
   if (inStandbyMode) {
    inStandbyMode = false;
-    sendCommand("");  // send byte to wake it up
+    sendCommand("");  // send uint8_t to wake it up
     return waitForSentence(PMTK_AWAKE);
   }
   else {

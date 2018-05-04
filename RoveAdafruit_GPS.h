@@ -18,13 +18,11 @@ All text above must be included in any redistribution
 #ifndef _ADAFRUIT_GPS_H
 #define _ADAFRUIT_GPS_H
 
-#ifdef __AVR__
-  #if ARDUINO >= 100
-    #include <SoftwareSerial.h>
-  #else
-    #include <NewSoftSerial.h>
-  #endif
-#endif
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "RoveBoard.h"
+
 
 // different commands to set the update rate from once a second (1 Hz) to 10 times a second (10Hz)
 // Note that these only control the rate at which the position is echoed, to actually speed up the
@@ -83,47 +81,29 @@ All text above must be included in any redistribution
 // how long to wait when we're looking for a response
 #define MAXWAITSENTENCE 5
 
-#if ARDUINO >= 100
- #include "Arduino.h"
-#if defined (__AVR__) && !defined(__AVR_ATmega32U4__)
- #include "SoftwareSerial.h"
-#endif
-#else
- #include "WProgram.h"
- #include "NewSoftSerial.h"
-#endif
-
-
 class Adafruit_GPS {
  public:
-  void begin(uint32_t baud); 
+  void begin(uint8_t uartIndex, uint32_t baud, uint8_t txPin, uint8_t rxPin);
 
-#ifdef __AVR__
-  #if ARDUINO >= 100 
-    Adafruit_GPS(SoftwareSerial *ser); // Constructor when using SoftwareSerial
-  #else
-    Adafruit_GPS(NewSoftSerial  *ser); // Constructor when using NewSoftSerial
-  #endif
-#endif
-  Adafruit_GPS(HardwareSerial *ser); // Constructor when using HardwareSerial
+  Adafruit_GPS(); // Constructor when using HardwareSerial
 
   char *lastNMEA(void);
-  boolean newNMEAreceived();
+  bool newNMEAreceived();
   void common_init(void);
 
-  void sendCommand(const char *);
+  void sendCommand(char *);
   
-  void pause(boolean b);
+  void pause(bool b);
 
-  boolean parseNMEA(char *response);
+  bool parseNMEA(char *response);
   uint8_t parseHex(char c);
 
   char read(void);
-  boolean parse(char *);
-  void interruptReads(boolean r);
+  bool parse(char *);
+  void interruptReads(bool r);
 
-  boolean wakeupGPS(void);
-  boolean standby(void);
+  bool wakeupGPS(void);
+  bool standby(void);
 
   uint8_t hour, minute, seconds, year, month, day;
   uint16_t milliseconds;
@@ -137,28 +117,22 @@ class Adafruit_GPS {
   float geoidheight, altitude;
   float speed, angle, magvariation, HDOP;
   char lat, lon, mag;
-  boolean fix;
+  bool fix;
   uint8_t fixquality, satellites;
 
-  boolean waitForSentence(const char *wait, uint8_t max = MAXWAITSENTENCE);
-  boolean LOCUS_StartLogger(void);
-  boolean LOCUS_StopLogger(void);
-  boolean LOCUS_ReadStatus(void);
+  bool waitForSentence(const char *wait, uint8_t max = MAXWAITSENTENCE);
+  bool LOCUS_StartLogger(void);
+  bool LOCUS_StopLogger(void);
+  bool LOCUS_ReadStatus(void);
 
   uint16_t LOCUS_serial, LOCUS_records;
   uint8_t LOCUS_type, LOCUS_mode, LOCUS_config, LOCUS_interval, LOCUS_distance, LOCUS_speed, LOCUS_status, LOCUS_percent;
  private:
-  boolean paused;
+  bool paused;
   
   uint8_t parseResponse(char *response);
-#ifdef __AVR__
-  #if ARDUINO >= 100
-    SoftwareSerial *gpsSwSerial;
-  #else
-    NewSoftSerial  *gpsSwSerial;
-  #endif
-#endif
-  HardwareSerial *gpsHwSerial;
+  RoveUart_Handle serial;
+
 };
 
 
