@@ -19,7 +19,7 @@ RoveCommEthernetUdp RoveComm;
 #define DECLINATION_HANKSVILLE 10 //Note: thexe values can change by the year
 #define DO_DECLINATION true
 
-int8_t declination = DECLINATION_HANKSVILLE;
+int8_t declination = DECLINATION_ROLLA;
 
 const int BUTTONS[6] = {LF_BUTTON_PIN, LM_BUTTON_PIN, LR_BUTTON_PIN, RF_BUTTON_PIN, RM_BUTTON_PIN, RR_BUTTON_PIN};
 
@@ -50,6 +50,7 @@ size_t imuRead = 0;
 int16_t tempHeading = 0;
 void sendButtonCommands();
 void setupButtonCommands();
+void parseRoveComm();
 
 void setup()
 {
@@ -87,10 +88,8 @@ uint32_t timer = millis();
 void loop()
 {
   sendButtonCommands();
-  
-  rovecomm_packet packet;
-  packet = RoveComm.read();
-  //leaving this with no parsing for now as we don't currently have a reason to communicate to NavBoard
+
+  parseRoveComm();
   
   // if millis() or timer wraps around, we'll just reset it
   if (timer > millis())
@@ -296,5 +295,22 @@ void readLidar()
   {
     lidarStuff[1] = lidarStuff[1] - 1;
     //Serial.println("Serial5 Unavaliable");
+  }
+}
+
+void parseRoveComm()
+{
+  rovecomm_packet packet;
+  packet = RoveComm.read();
+
+  if(packet.data_id != 0)
+  {
+    //Serial.println(packet.data_id);
+  }
+  switch(packet.data_id)
+  {
+    case RC_NAVBOARD_SETDECLINATION_DATAID:
+      declination = packet.data[0];
+      break;
   }
 }
