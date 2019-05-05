@@ -15,6 +15,12 @@ RoveCommEthernetUdp RoveComm;
 #define RM_BUTTON_PIN           PP_4
 #define RR_BUTTON_PIN           PQ_0
 
+#define DECLINATION_ROLLA 0
+#define DECLINATION_HANKSVILLE 10 //Note: thexe values can change by the year
+#define DO_DECLINATION true
+
+int8_t declination = DECLINATION_HANKSVILLE;
+
 const int BUTTONS[6] = {LF_BUTTON_PIN, LM_BUTTON_PIN, LR_BUTTON_PIN, RF_BUTTON_PIN, RM_BUTTON_PIN, RR_BUTTON_PIN};
 
 //Quaternion fusion;
@@ -40,7 +46,7 @@ int heading = 0;
 char imuData[64] = {};
 int bytesToRead = 0;
 size_t imuRead = 0;
-int imuHeading = 0;
+
 int16_t tempHeading = 0;
 void sendButtonCommands();
 void setupButtonCommands();
@@ -149,8 +155,8 @@ void readIMU()
       tempHeading += imuData[i] - '0';
     }
   }
-  imuHeading = tempHeading;
   finalImuData[1] = tempHeading;
+  if(DO_DECLINATION) finalImuData[1] += declination;
   finalImuData[1] += 180;
   finalImuData[1] = finalImuData[1]%360;
   finalImuData[1] = map(finalImuData[1], 0, 359, 359, 0); //flip the data to be clockwise instead of counter clockwise
